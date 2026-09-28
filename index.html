@@ -58,9 +58,17 @@
                 </p>
             </div>
             
-            <button id="btn-start" class="w-full bg-gray-900 text-white font-bold text-lg rounded-[22px] py-4 shadow-lg transition-all btn-active flex justify-center items-center">
-                <span>판정 시작하기</span>
-            </button>
+            <div class="flex flex-col w-full gap-3">
+                <button id="btn-start" class="w-full bg-gray-900 text-white font-bold text-lg rounded-[22px] py-4 shadow-lg transition-all btn-active flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h0.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span>카메라로 스캔하기</span>
+                </button>
+                <button id="btn-upload" class="w-full bg-white text-gray-800 border border-gray-200 font-bold text-lg rounded-[22px] py-4 shadow-sm transition-all btn-active flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <span>사진 업로드하여 분석</span>
+                </button>
+                <input type="file" id="file-input" accept="image/*" class="hidden">
+            </div>
             <p id="loading-msg" class="text-xs text-gray-400 mt-4 hidden">AI 모델 준비 중...</p>
         </div>
 
@@ -88,7 +96,7 @@
 
         <!-- 결과 리포트 화면 -->
         <div id="view-result" class="absolute inset-0 bg-[#F2F2F7] z-30 hidden flex-col overflow-y-auto">
-            <!-- Header Image -->
+            <!-- Header Image Area -->
             <div class="relative w-full h-64 bg-gray-900 shrink-0">
                 <img id="captured-image" class="w-full h-full object-cover opacity-60" />
                 <div class="absolute inset-0 bg-gradient-to-t from-[#F2F2F7] via-[#F2F2F7]/40 to-transparent"></div>
@@ -128,7 +136,7 @@
                         <div id="vibe-warm-bar" class="h-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all duration-1000" style="width: 50%;"></div>
                         <div id="vibe-cold-bar" class="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-1000" style="width: 50%;"></div>
                     </div>
-                    <p id="vibe-desc" class="text-[11px] text-gray-400 mt-2 text-center">부드럽고 훈훈한 분위기와 세련된 차도남 아우라의 조화</p>
+                    <p id="vibe-desc" class="text-[11px] text-gray-400 mt-2 text-center">부드럽고 훈훈한 분위기와 세련된 아우라의 조화</p>
                 </div>
 
                 <!-- 2컬럼 미니 스탯 (좌우대칭 & 추정 나이) -->
@@ -145,11 +153,11 @@
                     </div>
                 </div>
 
-                <!-- AI 관상운 (3지표 - 엄격한 계산) -->
+                <!-- AI 관상운 (3지표) -->
                 <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-xs font-bold text-gray-400">🔮 깐깐한 AI 관상운</h3>
-                        <span class="text-[10px] text-gray-400">냉정한 AI 평점 기준</span>
+                        <h3 class="text-xs font-bold text-gray-400">🔮 AI 관상운 분석</h3>
+                        <span class="text-[10px] text-gray-400">비율 분석 기준</span>
                     </div>
                     <div class="space-y-3 text-xs">
                         <div>
@@ -223,7 +231,7 @@
     </main>
 
     <!-- 공유 이미지용 캔버스 (숨김) -->
-    <canvas id="share-canvas" width="800" height="1350" class="hidden"></canvas>
+    <canvas id="share-canvas" width="800" height="960" class="hidden"></canvas>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
@@ -232,6 +240,8 @@
             const viewResult = document.getElementById('view-result');
             
             const btnStart = document.getElementById('btn-start');
+            const btnUpload = document.getElementById('btn-upload');
+            const fileInput = document.getElementById('file-input');
             const loadingMsg = document.getElementById('loading-msg');
             const btnRetry = document.getElementById('btn-retry');
             const btnShare = document.getElementById('btn-share');
@@ -255,7 +265,6 @@
             const vibeColdPercent = document.getElementById('vibe-cold-percent');
             const vibeWarmBar = document.getElementById('vibe-warm-bar');
             const vibeColdBar = document.getElementById('vibe-cold-bar');
-            const vibeDesc = document.getElementById('vibe-desc');
 
             const statSymmetry = document.getElementById('stat-symmetry');
             const statBabyface = document.getElementById('stat-babyface');
@@ -284,6 +293,7 @@
             let finalAnalysisResult = null;
             let cameraFrameRequest = null;
             let lastVideoTime = -1;
+            let isUploadMode = false;
 
             // MediaPipe Initializer
             function initFaceMesh() {
@@ -323,11 +333,10 @@
                 const GLABELLA = 168;
                 const SUBNASALE = 2;
                 const MENTON = 152;
-                const EYE_L_IN = 133, EYE_L_OUT = 33, EYE_L_TOP = 159, EYE_L_BOT = 145;
-                const EYE_R_IN = 362, EYE_R_OUT = 263, EYE_R_TOP = 386, EYE_R_BOT = 374;
+                const EYE_L_IN = 133, EYE_L_OUT = 33;
+                const EYE_R_IN = 362, EYE_R_OUT = 263;
                 const FACE_L = 234, FACE_R = 454;
                 const JAW_L = 132, JAW_R = 361;
-                const MOUTH_L = 61, MOUTH_R = 291, MOUTH_TOP = 0, MOUTH_BOT = 17;
 
                 // 1. 세로 비율
                 const upper = distance(landmarks[HAIRLINE], landmarks[GLABELLA]);
@@ -337,9 +346,9 @@
                 const normUpper = upper / middle;
                 const normLower = lower / middle;
                 
-                const upperErr = Math.abs(1 - normUpper);
-                const lowerErr = Math.abs(0.8 - normLower);
-                const verticalScore = Math.max(0, 100 - (upperErr * 100 + lowerErr * 100));
+                const upperErr = Math.abs(1.0 - normUpper);
+                const lowerErr = Math.abs(0.85 - normLower);
+                const verticalScore = Math.max(30, Math.min(99, Math.floor(100 - (upperErr * 45 + lowerErr * 50))));
 
                 // 2. 가로 비율
                 const leftEyeW = distance(landmarks[EYE_L_OUT], landmarks[EYE_L_IN]);
@@ -348,27 +357,24 @@
                 const intercanthal = distance(landmarks[EYE_L_IN], landmarks[EYE_R_IN]);
                 
                 const horizErr = Math.abs(avgEyeW - intercanthal) / avgEyeW;
-                const horizontalScore = Math.max(0, 100 - (horizErr * 150));
+                const horizontalScore = Math.max(30, Math.min(99, Math.floor(100 - (horizErr * 65))));
 
-                // 3. 기울기 및 눈 크기
+                // 3. 기울기 및 윤곽 비율
                 const leftTilt = -calculateAngle(landmarks[EYE_L_OUT], landmarks[EYE_L_IN]);
                 const rightTilt = calculateAngle(landmarks[EYE_R_OUT], landmarks[EYE_R_IN]);
                 const avgTilt = (leftTilt + rightTilt) / 2;
 
                 const faceWidth = distance(landmarks[FACE_L], landmarks[FACE_R]);
                 const faceHeight = distance(landmarks[HAIRLINE], landmarks[MENTON]);
-                const faceRatio = faceWidth / faceHeight;
                 const jawWidth = distance(landmarks[JAW_L], landmarks[JAW_R]);
                 const jawToFaceRatio = jawWidth / faceWidth;
-                const mouthWidth = distance(landmarks[MOUTH_L], landmarks[MOUTH_R]);
-                const mouthToFaceRatio = mouthWidth / faceWidth;
                 const eyeSizeRatio = avgEyeW / faceWidth;
 
                 // 4. 온미남 vs 냉미남 비율
                 let warmPoints = 50;
-                if (avgTilt < 2.0) warmPoints += 20; 
-                else if (avgTilt > 5.0) warmPoints -= 20; 
-                if (eyeSizeRatio > 0.20) warmPoints += 15; 
+                if (avgTilt < 1.5) warmPoints += 20; 
+                else if (avgTilt > 3.8) warmPoints -= 20; 
+                if (eyeSizeRatio > 0.18) warmPoints += 15; 
                 if (normLower < 0.85) warmPoints += 15; 
                 const warmPercent = Math.min(95, Math.max(10, Math.floor(warmPoints)));
                 const coldPercent = 100 - warmPercent;
@@ -377,70 +383,93 @@
                 const noseCenter = landmarks[GLABELLA];
                 const distLeftEye = distance(landmarks[EYE_L_IN], noseCenter);
                 const distRightEye = distance(landmarks[EYE_R_IN], noseCenter);
-                const eyeSymErr = Math.abs(distLeftEye - distRightEye) / ((distLeftEye + distRightEye) / 2);
+                const eyeSymErr = Math.abs(distLeftEye - distRightEye) / ((distLeftEye + distRightEye) / 2 || 1);
 
                 const distLeftJaw = distance(landmarks[JAW_L], landmarks[MENTON]);
                 const distRightJaw = distance(landmarks[JAW_R], landmarks[MENTON]);
-                const jawSymErr = Math.abs(distLeftJaw - distRightJaw) / ((distLeftJaw + distRightJaw) / 2);
+                const jawSymErr = Math.abs(distLeftJaw - distRightJaw) / ((distLeftJaw + distRightJaw) / 2 || 1);
 
-                const symmetryScore = Math.min(99.8, Math.max(88.0, Number((100 - (eyeSymErr * 50 + jawSymErr * 50)).toFixed(1))));
+                const symmetryScore = Math.min(99.6, Math.max(50.0, Number((100 - (eyeSymErr * 60 + jawSymErr * 60)).toFixed(1))));
 
-                // 6. 동안 지수 & 추정 나이
-                let babyfaceScore = Math.floor(100 - Math.abs(0.78 - normLower) * 120);
-                babyfaceScore = Math.min(99, Math.max(70, babyfaceScore));
-                const estimatedAge = Math.max(18, Math.floor(28 - (babyfaceScore - 80) * 0.35));
+                // 6. 엄격한 종합 잘생김 점수 계산 (비율 오라, 대칭, 이목구비 밸런스 엄격 평가)
+                const penaltySum = (upperErr * 30) + (lowerErr * 35) + (horizErr * 40) + (eyeSymErr * 50) + (jawSymErr * 50);
+                const rawScore = 96 - penaltySum;
+                const finalScore = Math.min(98, Math.max(42, Math.floor(rawScore)));
 
-                // 7. 풍부한 키워드 태그
+                // 7. 추정 나이 및 동안 지수
+                let ageFactor = 23;
+                if (normLower < 0.82) ageFactor -= 3;
+                else if (normLower > 1.05) ageFactor += 4;
+
+                if (eyeSizeRatio > 0.18) ageFactor -= 2;
+                else if (eyeSizeRatio < 0.15) ageFactor += 3;
+
+                if (jawToFaceRatio > 0.83) ageFactor += 3;
+                else if (jawToFaceRatio < 0.76) ageFactor -= 2;
+
+                const landmarkHash = Math.abs(Math.floor((landmarks[10].x + landmarks[152].y + landmarks[234].x) * 1000)) % 5 - 2;
+                const estimatedAge = Math.max(18, Math.min(45, ageFactor + landmarkHash));
+                const babyfaceScore = Math.min(99, Math.max(45, Math.floor(100 - (estimatedAge - 18) * 2.3)));
+
+                // 8. 키워드 태그
                 const tagPool = [];
+                if (finalScore >= 88) {
+                    tagPool.push("#정석_황금비율", "#조각상_페이셜", "#자체발광_아우라");
+                } else if (finalScore >= 75) {
+                    tagPool.push("#훈훈한_아우라", "#볼수록_매력파");
+                } else {
+                    tagPool.push("#개성파_매력", "#유니크한_분위기");
+                }
+
                 if (warmPercent >= 60) {
-                    tagPool.push("#온미남_정석", "#사르르_녹는_미소", "#인간_비타민", "#댕댕미_폭발");
+                    tagPool.push("#온미남_정석", "#사르르_녹는_미소");
                 } else if (coldPercent >= 60) {
-                    tagPool.push("#시크한_아우라", "#도시적인_차도남", "#냉미남_포스", "#날카로운_턱선");
+                    tagPool.push("#시크한_아우라", "#도시적인_차도남");
                 } else {
-                    tagPool.push("#반전매력_소유자", "#황금 밸런스_페이스");
+                    tagPool.push("#반전매력_소유자");
                 }
 
-                if (symmetryScore >= 96) {
-                    tagPool.push("#실물파_얼굴", "#각도무시_존잘", "#실체화된_조각상");
+                if (symmetryScore >= 95) {
+                    tagPool.push("#각도무시_존잘");
                 }
-                if (eyeSizeRatio > 0.20) {
-                    tagPool.push("#수채화_눈망울", "#입덕을_부르는_눈빛");
-                } else {
-                    tagPool.push("#무드있는_눈매", "#깊이있는_분위기");
-                }
-                if (normLower < 0.82) {
-                    tagPool.push("#절대동안_페이스", "#소년미_가득");
-                }
-                tagPool.push("#배우프로필_감성", "#화보장인", "#볼수록_빠져드는");
-
                 const selectedTags = Array.from(new Set(tagPool)).sort(() => 0.5 - Math.random()).slice(0, 4);
 
-                // 8. 깐깐한 AI 관상운 점수 계산 (기준 하향 조정으로 엄격 평가)
-                const fortuneAcademic = Math.min(96, Math.max(38, Math.floor((verticalScore * 0.65) + (normUpper < 1.1 ? 12 : -15))));
-                const fortuneWealth = Math.min(95, Math.max(35, Math.floor((horizontalScore * 0.62) + (horizErr < 0.1 ? 15 : -18))));
-                const fortuneLove = Math.min(98, Math.max(40, Math.floor((symmetryScore * 0.68) + (warmPercent > 50 ? 10 : -10))));
+                // 9. 관상운 점수
+                const fortuneAcademic = Math.min(96, Math.max(38, Math.floor((verticalScore * 0.7) + (normUpper < 1.05 ? 10 : -15))));
+                const fortuneWealth = Math.min(95, Math.max(35, Math.floor((horizontalScore * 0.7) + (horizErr < 0.1 ? 12 : -18))));
+                const fortuneLove = Math.min(98, Math.max(40, Math.floor((symmetryScore * 0.5) + (warmPercent > 50 ? 10 : -10))));
 
-                // 총점 계산
-                const finalScore = Math.floor((verticalScore * 0.3) + (horizontalScore * 0.3) + (symmetryScore * 0.3) + 10);
+                // 10. 해설
+                let vDesc = normLower > 1.05 ? "시원하고 선 굵은 이목구비가 세련된 분위기를 연출합니다." : (normLower < 0.80 ? "하관이 슬림하여 매력적인 동안 비율을 지녔습니다." : "조형적으로 이목구비의 세로 밸런스가 안정적입니다.");
+                let intuitiveDesc = symmetryScore >= 93 ? `좌우 대칭률 ${symmetryScore}%의 균형 잡힌 비율이 주는 단정한 느낌이 인상적입니다.` : `세부 이목구비의 개성과 독특한 조화가 매력을 완성합니다.`;
+                let summary = `${vDesc} ${intuitiveDesc}`;
 
-                // 해설
-                let vDesc = normLower > 1.05 ? "턱선이 시원하게 뻗어 성숙한 매력이 돋보입니다. " : (normLower < 0.78 ? "하관 비율이 짧아 매력적인 동안 비율입니다. " : "세로 황금 비례가 안정감을 줍니다. ");
-                let hDesc = intercanthal > avgEyeW * 1.15 ? "눈 사이 간격이 여유로워 인상이 부드럽습니다." : "이목구비 밀도감이 훌륭합니다.";
-                let summary = `${vDesc} ${hDesc} 좌우 대칭률 ${symmetryScore}%의 매우 훌륭한 밸런스를 가졌습니다.`;
-
-                // 10가지 동물상 다차원 점수제
+                // 11. 동물상 정밀 누적 점수제
                 const animalScores = {
-                    "강아지상 (Dog)": 10, "고양이상 (Cat)": 10, "여우상 (Fox)": 10, "늑대상 (Wolf)": 10,
-                    "곰상 (Bear)": 10, "공룡상 (Dinosaur)": 10, "말상 (Horse)": 10, "토끼상 (Rabbit)": 10,
-                    "사슴상 (Deer)": 10, "원숭이상 (Monkey)": 10
+                    "강아지상 (Dog)": 0, "고양이상 (Cat)": 0, "여우상 (Fox)": 0,
+                    "늑대상 (Wolf)": 0, "곰상 (Bear)": 0, "공룡상 (Dinosaur)": 0,
+                    "말상 (Horse)": 0, "토끼상 (Rabbit)": 0, "사슴상 (Deer)": 0, "원숭이상 (Monkey)": 0
                 };
 
-                if (avgTilt > 5.0) { animalScores["고양이상 (Cat)"] += 40; animalScores["여우상 (Fox)"] += 35; }
-                else if (avgTilt < 1.0) { animalScores["강아지상 (Dog)"] += 35; animalScores["곰상 (Bear)"] += 25; }
-                if (faceRatio > 0.74) { animalScores["곰상 (Bear)"] += 30; animalScores["공룡상 (Dinosaur)"] += 20; }
-                else if (faceRatio < 0.67) { animalScores["말상 (Horse)"] += 40; animalScores["여우상 (Fox)"] += 25; }
-                if (jawToFaceRatio > 0.83) { animalScores["늑대상 (Wolf)"] += 35; animalScores["공룡상 (Dinosaur)"] += 30; }
-                else if (jawToFaceRatio < 0.77) { animalScores["고양이상 (Cat)"] += 25; animalScores["토끼상 (Rabbit)"] += 25; }
+                if (avgTilt > 3.8) {
+                    animalScores["고양이상 (Cat)"] += 40; animalScores["여우상 (Fox)"] += 40; animalScores["늑대상 (Wolf)"] += 20;
+                } else if (avgTilt > 1.8) {
+                    animalScores["고양이상 (Cat)"] += 15; animalScores["여우상 (Fox)"] += 15; animalScores["늑대상 (Wolf)"] += 25;
+                } else {
+                    animalScores["강아지상 (Dog)"] += 40; animalScores["사슴상 (Deer)"] += 30; animalScores["곰상 (Bear)"] += 20; animalScores["토끼상 (Rabbit)"] += 20;
+                }
+
+                if (eyeSizeRatio > 0.185) {
+                    animalScores["사슴상 (Deer)"] += 35; animalScores["토끼상 (Rabbit)"] += 35; animalScores["강아지상 (Dog)"] += 25;
+                } else if (eyeSizeRatio < 0.155) {
+                    animalScores["늑대상 (Wolf)"] += 30; animalScores["여우상 (Fox)"] += 25; animalScores["공룡상 (Dinosaur)"] += 25;
+                }
+
+                if (jawToFaceRatio > 0.83) {
+                    animalScores["곰상 (Bear)"] += 40; animalScores["공룡상 (Dinosaur)"] += 40; animalScores["늑대상 (Wolf)"] += 25;
+                } else if (jawToFaceRatio < 0.77) {
+                    animalScores["고양이상 (Cat)"] += 35; animalScores["여우상 (Fox)"] += 35; animalScores["토끼상 (Rabbit)"] += 30; animalScores["사슴상 (Deer)"] += 25;
+                }
 
                 let selectedAnimal = "강아지상 (Dog)";
                 let maxScore = -1;
@@ -452,12 +481,12 @@
                 });
 
                 return {
-                    score: Math.min(100, finalScore),
+                    score: finalScore,
                     summary: summary,
                     animal: selectedAnimal,
                     vRatio: `1 : 1 : ${normLower.toFixed(2)}`,
                     vScore: verticalScore,
-                    hRatio: `눈 1 : 미간 ${(intercanthal/avgEyeW).toFixed(2)}`,
+                    hRatio: `눈 1 : 미간 ${(intercanthal/(avgEyeW || 1)).toFixed(2)}`,
                     hScore: horizontalScore,
                     warmPercent,
                     coldPercent,
@@ -473,6 +502,7 @@
 
             async function startCamera() {
                 try {
+                    isUploadMode = false;
                     cameraStream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: "user" }
                     });
@@ -513,8 +543,9 @@
             }
 
             function captureFrame() {
-                const vw = video.videoWidth || canvas.width;
-                const vh = video.videoHeight || canvas.height;
+                if (isUploadMode) return;
+                const vw = video.videoWidth || canvas.width || 640;
+                const vh = video.videoHeight || canvas.height || 480;
 
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = vw;
@@ -531,6 +562,12 @@
 
             function onFaceMeshResults(results) {
                 if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+                    if (detectionState === 'UPLOAD_PROCESSING') {
+                        alert('사진에서 얼굴을 인식하지 못했습니다. 다른 사진을 선택해주세요.');
+                        viewHome.classList.remove('hidden');
+                        detectionState = 'IDLE';
+                        return;
+                    }
                     scanStatus.textContent = '얼굴을 찾지 못했어요.';
                     scanStatus.classList.replace('text-white/90', 'text-red-400');
                     scanUi.classList.add('hidden');
@@ -539,8 +576,8 @@
                     return;
                 }
 
-                const width = canvas.width;
-                const height = canvas.height;
+                const width = canvas.width || 640;
+                const height = canvas.height || 480;
                 const landmarks = results.multiFaceLandmarks[0];
                 
                 const pxLandmarks = landmarks.map(lm => ({
@@ -549,6 +586,12 @@
                     z: lm.z * width
                 }));
                 latestLandmarks = pxLandmarks;
+
+                if (detectionState === 'UPLOAD_PROCESSING') {
+                    detectionState = 'DONE';
+                    finishScan();
+                    return;
+                }
 
                 if (detectionState === 'DETECTED') {
                     scanStatus.textContent = '얼굴 인식 완료. 정밀 비율 계산 중...';
@@ -609,7 +652,9 @@
             }
 
             function finishScan() {
-                captureFrame();
+                if (!isUploadMode) {
+                    captureFrame();
+                }
                 stopCamera();
                 
                 finalAnalysisResult = analyzeFace(latestLandmarks);
@@ -617,7 +662,7 @@
                 resScore.textContent = finalAnalysisResult.score;
                 resAnimal.textContent = finalAnalysisResult.animal;
                 resSummary.textContent = finalAnalysisResult.summary;
-                
+
                 // 태그 주입
                 resTagsContainer.innerHTML = '';
                 finalAnalysisResult.tags.forEach(tag => {
@@ -670,128 +715,126 @@
                 const sCtx = sCanvas.getContext('2d');
                 
                 sCanvas.width = 800;
-                sCanvas.height = 1350;
+                sCanvas.height = 840;
                 
                 const img = new Image();
                 img.onload = () => {
-                    sCtx.fillStyle = '#111827';
+                    // 배경 전체 라이트그레이
+                    sCtx.fillStyle = '#F2F2F7';
                     sCtx.fillRect(0, 0, sCanvas.width, sCanvas.height);
 
-                    const scale = Math.max(sCanvas.width / img.width, sCanvas.height / img.height);
-                    const drawW = img.width * scale;
-                    const drawH = img.height * scale;
-                    const x = (sCanvas.width - drawW) / 2;
-                    const y = (sCanvas.height - drawH) / 2;
-
-                    sCtx.save();
-                    sCtx.globalAlpha = 0.35;
-                    sCtx.drawImage(img, x, y, drawW, drawH);
-                    sCtx.restore();
-
-                    // White Glass Card
-                    sCtx.fillStyle = 'rgba(255, 255, 255, 0.96)';
-                    sCtx.shadowColor = 'rgba(0,0,0,0.2)';
-                    sCtx.shadowBlur = 40;
-                    roundRect(sCtx, 50, 80, 700, 1190, 40);
+                    // 메인 깔끔한 화이트 카드
+                    const cardX = 40, cardY = 40, cardW = 720, cardH = 760, cardR = 32;
+                    sCtx.fillStyle = '#FFFFFF';
+                    sCtx.shadowColor = 'rgba(0,0,0,0.08)';
+                    sCtx.shadowBlur = 30;
+                    sCtx.shadowOffsetY = 10;
+                    roundRect(sCtx, cardX, cardY, cardW, cardH, cardR);
                     sCtx.fill();
                     sCtx.shadowColor = 'transparent';
 
-                    // Profile Photo Circular
-                    const pScale = Math.max(220 / img.width, 220 / img.height);
-                    const pW = img.width * pScale;
-                    const pH = img.height * pScale;
-                    
+                    // 카드 내부 상단 - 깔끔한 사진 프레임
+                    const photoX = cardX + 40;
+                    const photoY = cardY + 40;
+                    const photoW = 200;
+                    const photoH = 220;
+                    const photoR = 20;
+
                     sCtx.save();
-                    sCtx.beginPath();
-                    sCtx.arc(400, 240, 100, 0, Math.PI * 2);
+                    roundRect(sCtx, photoX, photoY, photoW, photoH, photoR);
                     sCtx.clip();
-                    sCtx.drawImage(img, 400 - pW/2, 240 - pH/2, pW, pH);
+
+                    const photoScale = Math.max(photoW / img.width, photoH / img.height);
+                    const pW = img.width * photoScale;
+                    const pH = img.height * photoScale;
+                    sCtx.drawImage(img, photoX + (photoW - pW) / 2, photoY + (photoH - pH) / 2, pW, pH);
                     sCtx.restore();
 
-                    sCtx.strokeStyle = '#FFFFFF';
-                    sCtx.lineWidth = 6;
-                    sCtx.beginPath();
-                    sCtx.arc(400, 240, 100, 0, Math.PI * 2);
-                    sCtx.stroke();
+                    // 사진 우측 타이틀 & 점수 정보
+                    const infoX = photoX + photoW + 35;
+                    sCtx.textAlign = 'left';
+                    sCtx.fillStyle = '#9CA3AF';
+                    sCtx.font = '800 16px sans-serif';
+                    sCtx.fillText('AI ANALYSIS REPORT', infoX, photoY + 30);
 
-                    // Headings
-                    sCtx.textAlign = 'center';
-                    sCtx.fillStyle = '#6B7280';
-                    sCtx.font = 'bold 22px sans-serif';
-                    sCtx.fillText('AI가 분석한 나의 대표 동물상', 400, 390);
-                    
                     sCtx.fillStyle = '#111827';
-                    sCtx.font = '900 56px sans-serif';
-                    sCtx.fillText(finalAnalysisResult.animal, 400, 460);
+                    sCtx.font = '900 36px sans-serif';
+                    sCtx.fillText(finalAnalysisResult.animal, infoX, photoY + 75);
+
+                    sCtx.fillStyle = '#6B7280';
+                    sCtx.font = '800 16px sans-serif';
+                    sCtx.fillText('TOTAL SCORE', infoX, photoY + 130);
 
                     sCtx.fillStyle = '#EF4444';
-                    sCtx.font = '900 44px sans-serif';
-                    sCtx.fillText(finalAnalysisResult.score + '점', 400, 520);
+                    sCtx.font = '900 50px sans-serif';
+                    sCtx.fillText(`${finalAnalysisResult.score}점`, infoX, photoY + 185);
 
-                    // Tags
-                    sCtx.font = 'bold 20px sans-serif';
-                    sCtx.fillStyle = '#4B5563';
-                    sCtx.fillText(finalAnalysisResult.tags.join('  '), 400, 575);
-
-                    sCtx.strokeStyle = '#E5E7EB';
+                    // 구분선 1
+                    let yPos = photoY + photoH + 30;
+                    sCtx.strokeStyle = '#F3F4F6';
                     sCtx.lineWidth = 2;
                     sCtx.beginPath();
-                    sCtx.moveTo(100, 610);
-                    sCtx.lineTo(700, 610);
+                    sCtx.moveTo(cardX + 40, yPos);
+                    sCtx.lineTo(cardX + cardW - 40, yPos);
                     sCtx.stroke();
 
-                    // Detailed Grid Metrics inside Canvas
-                    let yPos = 660;
+                    // 태그 목록
+                    yPos += 40;
+                    sCtx.textAlign = 'center';
+                    sCtx.font = 'bold 21px sans-serif';
+                    sCtx.fillStyle = '#2563EB';
+                    sCtx.fillText(finalAnalysisResult.tags.join('   '), cardX + cardW/2, yPos);
+
+                    // 주요 수치 (온/냉미남, 좌우대칭/나이)
+                    yPos += 40;
                     sCtx.textAlign = 'left';
-                    
-                    // 1. 온미남 vs 냉미남
-                    sCtx.fillStyle = '#111827';
-                    sCtx.font = 'bold 22px sans-serif';
-                    sCtx.fillText(`☀️ 온미남 ${finalAnalysisResult.warmPercent}%   vs   ❄️ 냉미남 ${finalAnalysisResult.coldPercent}%`, 100, yPos);
-                    
-                    yPos += 45;
-                    sCtx.fillStyle = '#374151';
-                    sCtx.font = 'bold 22px sans-serif';
-                    sCtx.fillText(`📐 좌우 대칭률: ${finalAnalysisResult.symmetryScore}%`, 100, yPos);
-                    sCtx.fillText(`👶 AI 추정 나이: ${finalAnalysisResult.estimatedAge}세 (동안: ${finalAnalysisResult.babyfaceScore}점)`, 410, yPos);
-
-                    yPos += 55;
-                    sCtx.strokeStyle = '#E5E7EB';
-                    sCtx.beginPath();
-                    sCtx.moveTo(100, yPos);
-                    sCtx.lineTo(700, yPos);
-                    sCtx.stroke();
-
-                    // 2. 관상운
-                    yPos += 45;
-                    sCtx.fillStyle = '#111827';
-                    sCtx.font = 'bold 22px sans-serif';
-                    sCtx.fillText('🔮 깐깐한 AI 관상운 점수', 100, yPos);
+                    sCtx.fillStyle = '#1F2937';
+                    sCtx.font = 'bold 20px sans-serif';
+                    sCtx.fillText(`☀️ 온미남 ${finalAnalysisResult.warmPercent}%   vs   ❄️ 냉미남 ${finalAnalysisResult.coldPercent}%`, cardX + 45, yPos);
 
                     yPos += 35;
-                    sCtx.font = '500 20px sans-serif';
-                    sCtx.fillStyle = '#4B5563';
-                    sCtx.fillText(`• 이마(학업/명예): ${finalAnalysisResult.fortuneAcademic}점`, 120, yPos);
-                    sCtx.fillText(`• 코(재물/실속): ${finalAnalysisResult.fortuneWealth}점`, 120, yPos + 32);
-                    sCtx.fillText(`• 하관(인복/연애): ${finalAnalysisResult.fortuneLove}점`, 120, yPos + 64);
+                    sCtx.fillText(`📐 좌우 대칭률: ${finalAnalysisResult.symmetryScore}%`, cardX + 45, yPos);
+                    sCtx.fillText(`👶 추정 나이: ${finalAnalysisResult.estimatedAge}세 (동안 ${finalAnalysisResult.babyfaceScore}점)`, cardX + 360, yPos);
 
-                    yPos += 130;
+                    // 구분선 2
+                    yPos += 35;
+                    sCtx.strokeStyle = '#F3F4F6';
+                    sCtx.beginPath();
+                    sCtx.moveTo(cardX + 40, yPos);
+                    sCtx.lineTo(cardX + cardW - 40, yPos);
+                    sCtx.stroke();
+
+                    // AI 관상운
+                    yPos += 38;
+                    sCtx.fillStyle = '#111827';
+                    sCtx.font = 'bold 21px sans-serif';
+                    sCtx.fillText('🔮 AI 관상운 점수', cardX + 45, yPos);
+
+                    yPos += 30;
+                    sCtx.font = '500 19px sans-serif';
+                    sCtx.fillStyle = '#4B5563';
+                    sCtx.fillText(`• 이마(학업/명예): ${finalAnalysisResult.fortuneAcademic}점`, cardX + 55, yPos);
+                    sCtx.fillText(`• 중안부(재물/실속): ${finalAnalysisResult.fortuneWealth}점`, cardX + 55, yPos + 28);
+                    sCtx.fillText(`• 하관(인복/연애): ${finalAnalysisResult.fortuneLove}점`, cardX + 55, yPos + 56);
+
+                    // 요약 멘트 Box
+                    yPos += 110;
                     sCtx.textAlign = 'center';
-                    sCtx.fillStyle = '#6B7280';
-                    sCtx.font = '500 20px sans-serif';
+                    sCtx.fillStyle = '#374151';
+                    sCtx.font = '500 19px sans-serif';
                     const words = finalAnalysisResult.summary.split(' ');
                     let line = '';
                     for(let n = 0; n < words.length; n++) {
                         const testLine = line + words[n] + ' ';
-                        if(sCtx.measureText(testLine).width > 560 && n > 0) {
-                            sCtx.fillText(line.trim(), 400, yPos);
+                        if(sCtx.measureText(testLine).width > 600 && n > 0) {
+                            sCtx.fillText(line.trim(), cardX + cardW/2, yPos);
                             line = words[n] + ' ';
-                            yPos += 32;
+                            yPos += 28;
                         } else {
                             line = testLine;
                         }
                     }
-                    sCtx.fillText(line.trim(), 400, yPos);
+                    sCtx.fillText(line.trim(), cardX + cardW/2, yPos);
                 };
                 img.src = capturedDataUrl;
             }
@@ -812,16 +855,46 @@
 
             // Event Listeners
             btnStart.addEventListener('click', () => {
+                isUploadMode = false;
                 viewHome.classList.add('hidden');
                 viewScan.classList.remove('hidden');
                 viewScan.classList.add('flex');
                 startCamera();
             });
 
+            btnUpload.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                isUploadMode = true;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    capturedDataUrl = event.target.result;
+                    capturedImage.src = capturedDataUrl;
+
+                    const img = new Image();
+                    img.onload = async () => {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        detectionState = 'UPLOAD_PROCESSING';
+                        viewHome.classList.add('hidden');
+                        await faceMesh.send({image: img});
+                    };
+                    img.src = capturedDataUrl;
+                };
+                reader.readAsDataURL(file);
+                fileInput.value = '';
+            });
+
             btnRetry.addEventListener('click', () => {
                 viewResult.classList.add('hidden');
                 viewResult.classList.remove('fade-in');
                 viewHome.classList.remove('hidden');
+                detectionState = 'IDLE';
                 
                 statVerticalBar.style.width = '0%';
                 statHorizontalBar.style.width = '0%';
@@ -830,7 +903,6 @@
                 barLove.style.width = '0%';
             });
 
-            // 공유 시 텍스트나 제목 없이 '이미지 파일'만 전송
             btnShare.addEventListener('click', async () => {
                 const sCanvas = document.getElementById('share-canvas');
                 const dataUrl = sCanvas.toDataURL("image/jpeg", 0.9);
