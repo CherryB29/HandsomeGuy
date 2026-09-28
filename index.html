@@ -193,10 +193,8 @@
             const resSummary = document.getElementById('res-summary');
             const statVerticalText = document.getElementById('stat-vertical-text');
             const statVerticalBar = document.getElementById('stat-vertical-bar');
-            const statVerticalDesc = document.getElementById('stat-vertical-desc');
             const statHorizontalText = document.getElementById('stat-horizontal-text');
             const statHorizontalBar = document.getElementById('stat-horizontal-bar');
-            const statHorizontalDesc = document.getElementById('stat-horizontal-desc');
 
             // 상태 변수
             let cameraStream = null;
@@ -248,37 +246,41 @@
                 return Math.atan2(dy, dx) * (180 / Math.PI);
             }
 
-            // 분석 핵심 로직 (냉혹한 기준)
+            // 분석 핵심 로직
             function analyzeFace(landmarks) {
                 // 주요 랜드마크 인덱스
                 const HAIRLINE = 10;
                 const GLABELLA = 168; // 미간
-                const NOSE_TIP = 1;
                 const SUBNASALE = 2; // 코밑
                 const MENTON = 152; // 턱끝
-                const EYE_L_IN = 133, EYE_L_OUT = 33;
-                const EYE_R_IN = 362, EYE_R_OUT = 263;
+                const EYE_L_IN = 133, EYE_L_OUT = 33, EYE_L_TOP = 159, EYE_L_BOT = 145;
+                const EYE_R_IN = 362, EYE_R_OUT = 263, EYE_R_TOP = 386, EYE_R_BOT = 374;
                 const FACE_L = 234, FACE_R = 454;
+                const JAW_L = 132, JAW_R = 361; // 하관/턱선 너비 지표
                 const MOUTH_L = 61, MOUTH_R = 291;
 
                 // 1. 수직 비례 (상:중:하)
                 const upper = distance(landmarks[HAIRLINE], landmarks[GLABELLA]);
                 const middle = distance(landmarks[GLABELLA], landmarks[SUBNASALE]);
                 const lower = distance(landmarks[SUBNASALE], landmarks[MENTON]);
-                const totalH = upper + middle + lower;
                 
                 const normUpper = upper / middle;
                 const normLower = lower / middle;
+                
                 // 이상적 기준 1 : 1 : 0.8
                 const upperErr = Math.abs(1 - normUpper);
                 const lowerErr = Math.abs(0.8 - normLower);
                 const verticalScore = Math.max(0, 100 - (upperErr * 100 + lowerErr * 100));
 
-                // 2. 수평 비례 (안검열)
+                // 2. 수평 비례 및 이목구비 크기
                 const leftEyeW = distance(landmarks[EYE_L_OUT], landmarks[EYE_L_IN]);
                 const rightEyeW = distance(landmarks[EYE_R_OUT], landmarks[EYE_R_IN]);
-                const intercanthal = distance(landmarks[EYE_L_IN], landmarks[EYE_R_IN]);
                 const avgEyeW = (leftEyeW + rightEyeW) / 2;
+                const intercanthal = distance(landmarks[EYE_L_IN], landmarks[EYE_R_IN]);
+
+                const leftEyeH = distance(landmarks[EYE_L_TOP], landmarks[EYE_L_BOT]);
+                const rightEyeH = distance(landmarks[EYE_R_TOP], landmarks[EYE_R_BOT]);
+                const avgEyeH = (leftEyeH + rightEyeH) / 2;
                 
                 // 눈길이 vs 미간 (이상 1:1)
                 const horizErr = Math.abs(avgEyeW - intercanthal) / avgEyeW;
@@ -289,23 +291,30 @@
                 const rightTilt = calculateAngle(landmarks[EYE_R_OUT], landmarks[EYE_R_IN]);
                 const avgTilt = (leftTilt + rightTilt) / 2;
 
-                // 4. 얼굴 너비 비율 (가로/세로)
+                // 4. 얼굴 전체 가로/세로 비율 및 골격(하관/목 너비 지표)
                 const faceWidth = distance(landmarks[FACE_L], landmarks[FACE_R]);
                 const faceHeight = distance(landmarks[HAIRLINE], landmarks[MENTON]);
-                const faceRatio = faceWidth / faceHeight; // 둥글수록 큼
+                const faceRatio = faceWidth / faceHeight; // 크면 둥글거나 넓음
+                
+                const jawWidth = distance(landmarks[JAW_L], landmarks[JAW_R]);
+                const jawToFaceRatio = jawWidth / faceWidth; // 하관 및 골격 발달도 지표
+                
+                const mouthWidth = distance(landmarks[MOUTH_L], landmarks[MOUTH_R]);
+                const mouthToFaceRatio = mouthWidth / faceWidth;
+                const eyeSizeRatio = avgEyeW / faceWidth;
 
-                // 최종 점수 산정 (가차없이)
-                const finalScore = Math.floor((verticalScore * 0.4) + (horizontalScore * 0.4) + (Math.random() * 10 + 10)); // 최대치 보정해도 100점 어려움
+                // 최종 황금비율 점수 산정
+                const finalScore = Math.floor((verticalScore * 0.4) + (horizontalScore * 0.4) + (Math.random() * 8 + 17));
 
-                // 일반인이 이해하기 쉬운 친절한 해설
+                // 친절한 해설 생성
                 let vDesc = "";
-                if (normLower > 0.95) vDesc = "턱선이 시원하게 뻗어 있어서 성숙하고 세련된 매력이 돋보여요. ";
-                else if (normLower < 0.7) vDesc = "하관이 짧은 편이라 안면 비율상 완벽한 '동안' 얼굴형이네요! ";
-                else vDesc = "이마, 코, 턱으로 이어지는 세로 길이가 거의 황금비에 가까워 안정감을 줍니다. ";
+                if (normLower > 1.05) vDesc = "턱선이 시원하게 뻗어 있어서 성숙하고 세련된 매력이 돋보여요. ";
+                else if (normLower < 0.78) vDesc = "하관이 짧은 편이라 안면 비율상 완벽한 '동안' 얼굴형이네요! ";
+                else vDesc = "이마, 코, 턱으로 이어지는 세로 길이가 황금비에 가까워 안정감을 줍니다. ";
                 
                 let hDesc = "";
-                if (intercanthal > avgEyeW * 1.1) hDesc = "눈 사이 간격이 살짝 넓어서 인상이 아주 부드럽고 여유로워 보여요.";
-                else if (intercanthal < avgEyeW * 0.9) hDesc = "눈 사이가 가까운 편이라 이목구비가 얼굴에 꽉 차 보이고 뚜렷한 인상이네요.";
+                if (intercanthal > avgEyeW * 1.15) hDesc = "눈 사이 간격이 살짝 넓어서 인상이 아주 부드럽고 여유로워 보여요.";
+                else if (intercanthal < avgEyeW * 0.88) hDesc = "눈 사이가 가까운 편이라 이목구비가 얼굴에 꽉 차 보이고 뚜렷한 인상이네요.";
                 else hDesc = "눈의 가로 길이와 미간의 너비가 1:1에 딱 맞아떨어지는 이상적인 비율입니다!";
 
                 let summary = "";
@@ -314,22 +323,111 @@
                 else if (finalScore >= 55) summary = "개성 있고 매력적인 얼굴입니다. " + vDesc + hDesc;
                 else summary = "유니크한 분위기가 시선을 끄는 얼굴이네요. " + vDesc + hDesc;
 
-                // 동물상 판정
-                let animal = "강아지상 (Dog)";
-                if (normLower > 1.0) animal = "말상 (Horse)";
-                else if (avgTilt > 6) animal = "고양이상 (Cat)";
-                else if (avgTilt > 3 && normLower > 0.85) animal = "늑대상 (Wolf)";
-                else if (avgTilt > 4 && faceRatio < 0.65) animal = "여우상 (Fox)";
-                else if (faceRatio > 0.75) animal = "곰상 (Bear)";
-                else if (avgEyeW / faceWidth > 0.22) animal = "사슴상 (Deer)";
-                else if (avgEyeW / faceWidth > 0.2 && normLower <= 0.75) animal = "토끼상 (Rabbit)";
-                else if (distance(landmarks[MOUTH_L], landmarks[MOUTH_R]) / faceWidth > 0.4) animal = "공룡상 (Dinosaur)";
-                else if (normUpper > 1.2 && normLower < 0.8) animal = "원숭이상 (Monkey)";
+                // -----------------------------------------------------------------
+                // 다차원 점수 누적(Scoring Matrix) 알고리즘으로 10가지 동물상 분류
+                // -----------------------------------------------------------------
+                const animalScores = {
+                    "강아지상 (Dog)": 10,
+                    "고양이상 (Cat)": 10,
+                    "여우상 (Fox)": 10,
+                    "늑대상 (Wolf)": 10,
+                    "곰상 (Bear)": 10,
+                    "공룡상 (Dinosaur)": 10,
+                    "말상 (Horse)": 10,
+                    "토끼상 (Rabbit)": 10,
+                    "사슴상 (Deer)": 10,
+                    "원숭이상 (Monkey)": 10
+                };
+
+                // 1) 눈꼬리 각도 (avgTilt)
+                if (avgTilt > 5.5) {
+                    animalScores["고양이상 (Cat)"] += 40;
+                    animalScores["여우상 (Fox)"] += 35;
+                    animalScores["늑대상 (Wolf)"] += 25;
+                } else if (avgTilt > 3.0) {
+                    animalScores["고양이상 (Cat)"] += 20;
+                    animalScores["여우상 (Fox)"] += 20;
+                    animalScores["늑대상 (Wolf)"] += 20;
+                    animalScores["사슴상 (Deer)"] += 15;
+                } else if (avgTilt < 1.0) {
+                    animalScores["강아지상 (Dog)"] += 35;
+                    animalScores["곰상 (Bear)"] += 25;
+                    animalScores["토끼상 (Rabbit)"] += 25;
+                } else {
+                    animalScores["사슴상 (Deer)"] += 20;
+                    animalScores["강아지상 (Dog)"] += 20;
+                }
+
+                // 2) 얼굴 전체 가로/세로 비율 (faceRatio)
+                if (faceRatio > 0.74) {
+                    animalScores["곰상 (Bear)"] += 35;
+                    animalScores["공룡상 (Dinosaur)"] += 20;
+                    animalScores["강아지상 (Dog)"] += 15;
+                } else if (faceRatio < 0.67) {
+                    animalScores["말상 (Horse)"] += 40;
+                    animalScores["여우상 (Fox)"] += 30;
+                    animalScores["사슴상 (Deer)"] += 25;
+                } else {
+                    animalScores["토끼상 (Rabbit)"] += 20;
+                    animalScores["강아지상 (Dog)"] += 20;
+                    animalScores["고양이상 (Cat)"] += 15;
+                }
+
+                // 3) 하관 및 골격 발달도 (jawToFaceRatio)
+                if (jawToFaceRatio > 0.83) {
+                    animalScores["곰상 (Bear)"] += 35;
+                    animalScores["늑대상 (Wolf)"] += 35;
+                    animalScores["공룡상 (Dinosaur)"] += 30;
+                } else if (jawToFaceRatio < 0.77) {
+                    animalScores["고양이상 (Cat)"] += 25;
+                    animalScores["여우상 (Fox)"] += 25;
+                    animalScores["토끼상 (Rabbit)"] += 25;
+                    animalScores["사슴상 (Deer)"] += 20;
+                }
+
+                // 4) 하안부 길이 비율 (normLower)
+                if (normLower > 1.08) {
+                    animalScores["말상 (Horse)"] += 35;
+                    animalScores["늑대상 (Wolf)"] += 25;
+                    animalScores["곰상 (Bear)"] += 20;
+                } else if (normLower < 0.82) {
+                    animalScores["토끼상 (Rabbit)"] += 35;
+                    animalScores["원숭이상 (Monkey)"] += 30;
+                    animalScores["강아지상 (Dog)"] += 20;
+                }
+
+                // 5) 입 크기 비율 (mouthToFaceRatio)
+                if (mouthToFaceRatio > 0.36) {
+                    animalScores["공룡상 (Dinosaur)"] += 45;
+                    animalScores["원숭이상 (Monkey)"] += 25;
+                }
+
+                // 6) 눈 크기 비율 (eyeSizeRatio)
+                if (eyeSizeRatio > 0.21) {
+                    animalScores["사슴상 (Deer)"] += 35;
+                    animalScores["토끼상 (Rabbit)"] += 30;
+                    animalScores["강아지상 (Dog)"] += 20;
+                }
+
+                // 7) 상안부(이마) 비율 (normUpper)
+                if (normUpper > 1.15) {
+                    animalScores["원숭이상 (Monkey)"] += 35;
+                }
+
+                // 가장 높은 점수의 동물상 선택
+                let selectedAnimal = "강아지상 (Dog)";
+                let maxScore = -1;
+                Object.keys(animalScores).forEach(key => {
+                    if (animalScores[key] > maxScore) {
+                        maxScore = animalScores[key];
+                        selectedAnimal = key;
+                    }
+                });
 
                 return {
-                    score: finalScore,
+                    score: Math.min(100, finalScore),
                     summary: summary,
-                    animal: animal,
+                    animal: selectedAnimal,
                     vRatio: `1 : 1 : ${normLower.toFixed(2)}`,
                     vScore: verticalScore,
                     hRatio: `눈 1 : 미간 ${(intercanthal/avgEyeW).toFixed(2)}`,
