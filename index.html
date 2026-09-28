@@ -802,7 +802,6 @@
                 try {
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         await navigator.share({
-                            title: '잘생김 판독기 결과',
                             files: [file]
                         });
                     } else {
